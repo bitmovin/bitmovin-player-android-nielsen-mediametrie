@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  COMPILE_SDK: 35
+  MIN_SDK: 24
+  TARGET_SDK: 35
+  GROUP_ID: com.bitmovin.player.integration
+  VERSION_NAME: 0.1.2
+  PLAYER_KEY: ${{ secrets.PLAYER_KEY }}
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup build
+      uses: ./.github/actions/setup-build
+    - name: Create gradle.properties for CI
+      run: |
+        cat > gradle.properties <<EOF
+        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+        android.useAndroidX=true
+        kotlin.code.style=official
+        android.nonTransitiveRClass=true
+        minSdkVersion=${MIN_SDK}
+        targetSdkVersion=${TARGET_SDK}
+        compileSdkVersion=${COMPILE_SDK}
+        groupId=${GROUP_ID}
+        versionName=${VERSION_NAME}
+        playerKey=${PLAYER_KEY}
+        EOF
+    - name: Run unit tests
+      run: ./gradlew testDebugUnitTest
+    - name: Display unit test results
+      id: test-results
+      uses: bitmovin-engineering/action-junit-report@v4
+      if: always()
+      with:
+        check_name: 'Unit tests: Results'
+        report_paths: '**/build/test-results/testDebugUnitTest/TEST-*.xml'
