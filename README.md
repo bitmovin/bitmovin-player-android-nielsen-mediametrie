@@ -207,3 +207,17 @@ dependencies {
     implementation("com.bitmovin.player.integration:nielsen-mediametrie-sdk:0.1.3")
 }
 ```
+Maintenance and Updates
+As an open source project, this library is not part of a regular maintenance or update schedule and is updated on an adhoc basis when contributions are made.
+
+Raising a Feature Suggestion
+If you see something missing that might be useful but are unable to contribute the feature yourself, please feel free to submit a feature request through the Bitmovin Community. Feature suggestions will be considered by Bitmovin’s Product team for future roadmap plans.
+
+Reporting a bug
+If you come across a bug related to this SDK, please raise this through the support ticketing system accessible in your Bitmovin Dashboard.
+
+Support and SLA Disclaimer
+As an open-source project and not a core product offering, any request, issue or query related to this project is excluded from any SLA and Support terms that a customer might have with either Bitmovin or another third-party service provider or Company contributing to this project. Any and all updates are purely at the contributor's discretion.
+
+Need more help?
+Should you need further help, please raise your request to your Bitmovin account team. We can assist in a number of ways, from providing you professional services help to putting you in touch with preferred system integrators who can work with you to achieve your goals.
