@@ -114,15 +114,14 @@ afterEvaluate {
         }
 
         repositories {
-            // TODO: When ready to publish to a real internal repo, uncomment the following block.
-//            maven {
-//                name = "internalRepo"
-//                url = uri(rootProject.extra["mavenInternalRepoUrl"].toString())
-//                credentials {
-//                    username = rootProject.extra["mavenUsername"].toString()
-//                    password = rootProject.extra["mavenPassword"].toString()
-//                }
-//            }
+            maven {
+                name = "Bitmovin"
+                url = uri("https://bitmovin.jfrog.io/bitmovin/libs-release-local")
+                credentials {
+                    username = rootProject.findProperty("mavenUsername").toString()
+                    password = rootProject.findProperty("mavenPassword").toString()
+                }
+            }
 
             // This is for local testing and development.
             maven {

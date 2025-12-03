@@ -153,7 +153,7 @@ The library module is designed to be reusable and self-contained, encapsulating 
 
 The library is published as an **AAR** file in a local **Maven** repository, which allows it to be consumed by the application module.
 
-### **Publishing the Library**
+### **Publishing the Library for local testing**
 
 Before being able to publish the library, make sure to clean & build the library with the following command in the root directory:
 
@@ -169,8 +169,8 @@ To publish the **AAR** to the local repository, use the following Gradle command
 
 * **build.gradle.kts Configuration**: The publication configuration is located in the library's `build.gradle.kts` file and is ready to be adapted for an internal **Maven** repository.  
 * **Repository Management**:   
-  * The project is currently configured to publish to a local repository located at `build/maven_repo`.  
-* Credentials for an internal **Maven** repository are securely managed in `gradle.properties`. To activate them, simply uncomment the corresponding code block in the library's `build.gradle.kts` file.
+  * The project includes configurations for both a local repository and a public **Maven** repository.
+* Credentials for the **Maven** repository are securely managed in `local.properties`.
 
 ### **Consuming the Library**
 
@@ -183,23 +183,26 @@ dependencies {
 }
 ```
 
-## **Publishing to the Internal Maven Repository**
+## **Publishing the library**
 
-To publish the library to the **internal** **Maven** repository, follow these steps:
+To publish the library to the **Bitmovin** **Maven** repository, use the GitHub Actions workflow `publish.yml`.
 
-1. **Update Credentials**: In the `gradle.properties` file of the root project, update the following properties with the provided credentials:  
-   * `mavenInternalRepoUrl`  
+First, make sure to update the version in the `gradle.properties` file. Then, create a new release in GitHub, which will trigger the publication process automatically.
+
+
+###**Manual Publication Steps**
+
+1. **Update Credentials**: In the `local.properties` file of the root project, update the following properties with the provided credentials:  
    * `mavenUsername`  
    * `mavenPassword`  
-2. **Increment Version**: In the same `gradle.properties` file, update the library's version number. For example, change it from `0.1.2` to `0.1.3` to indicate a new release.  
-3. **Configure `build.gradle.kts`**: In the `build.gradle.kts` file of the library module, **uncomment** the code block for the `internalRepo` and **comment out** the `localRepo` block. This will redirect the publication to the internal repository instead of the local one.  
-4. **Execute the Publication Command**: Once configured, run the following command to upload the **AAR** to the internal repository.
+2. **Increment Version**: In the `gradle.properties` file, update the library's version number. For example, change it from `0.1.2` to `0.1.3` to indicate a new release.
+3. **Execute the Publication Command**:Run the following command to upload the **AAR** to the internal repository.
 
 ```
 ./gradlew publish
 ```
 
-5. **Update the Dependency in the App**: After the new library version has been published, update the dependency in the app module's `build.gradle.kts` file to point to the new version.
+4. **Update the Dependency in the App**: After the new library version has been published, update the dependency in the app module's `build.gradle.kts` file to point to the new version.
 
 ```
 dependencies {
@@ -207,6 +210,7 @@ dependencies {
     implementation("com.bitmovin.player.integration:nielsen-mediametrie-sdk:0.1.3")
 }
 ```
+
 Maintenance and Updates
 As an open source project, this library is not part of a regular maintenance or update schedule and is updated on an adhoc basis when contributions are made.
 
