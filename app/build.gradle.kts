@@ -52,7 +52,6 @@ android {
     compileSdk = compileSdkVersion.toInt()
 
     defaultConfig {
-        //TODO change applicationId
         applicationId = "com.bitmovin.player.integration.nielsen.nielsensample"
         minSdk = minSdkVersion.toInt()
         targetSdk = targetSdkVersion.toInt()
