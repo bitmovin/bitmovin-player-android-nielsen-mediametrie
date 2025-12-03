@@ -153,7 +153,7 @@ The library module is designed to be reusable and self-contained, encapsulating 
 
 The library is published as an **AAR** file in a local **Maven** repository, which allows it to be consumed by the application module.
 
-### **Publishing the Library**
+### **Publishing the Library for local testing**
 
 Before being able to publish the library, make sure to clean & build the library with the following command in the root directory:
 
@@ -183,9 +183,14 @@ dependencies {
 }
 ```
 
-## **Publishing to the Internal Maven Repository**
+## **Publishing the library**
 
-To publish the library to the **internal** **Maven** repository, follow these steps:
+To publish the library to the **Bitmovin** **Maven** repository, use the GitHub Actions workflow `publish.yml`.
+
+First, make sure to update the version in the `gradle.properties` file. Then, create a new release in GitHub, which will trigger the publication process automatically.
+
+
+###**Manual Publication Steps**
 
 1. **Update Credentials**: In the `local.properties` file of the root project, update the following properties with the provided credentials:  
    * `mavenUsername`  
@@ -205,6 +210,7 @@ dependencies {
     implementation("com.bitmovin.player.integration:nielsen-mediametrie-sdk:0.1.3")
 }
 ```
+
 Maintenance and Updates
 As an open source project, this library is not part of a regular maintenance or update schedule and is updated on an adhoc basis when contributions are made.
 

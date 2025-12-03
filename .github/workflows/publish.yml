@@ -1,12 +1,15 @@
 name: Publish SDK
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
   publish:
     name: Publish Nielsen Mediametrie SDK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
