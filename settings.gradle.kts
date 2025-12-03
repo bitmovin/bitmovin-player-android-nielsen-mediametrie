@@ -22,8 +22,6 @@ dependencyResolutionManagement {
         maven {
             url = uri("https://raw.githubusercontent.com/NielsenDigitalSDK/nielsenappsdk-android/master/")
         }
-        // local repository
-        // TODO: CHANGE WITH THE INTERNAL MAVEN REPO WHEN PROVIDED BY THE CLIENT
         maven {
             url = uri("build/maven_repo")
         }
