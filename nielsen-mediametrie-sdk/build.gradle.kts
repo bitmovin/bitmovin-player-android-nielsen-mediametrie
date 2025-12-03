@@ -116,7 +116,7 @@ afterEvaluate {
         repositories {
             maven {
                 name = "Bitmovin"
-                url = uri("https://bitmovin.jfrog.io/bitmovin/libs-release-local")
+                url = uri("https://bitmovin.jfrog.io/bitmovin/public-releases")
                 credentials {
                     username = rootProject.findProperty("mavenUsername").toString()
                     password = rootProject.findProperty("mavenPassword").toString()
