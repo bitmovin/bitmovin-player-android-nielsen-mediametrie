@@ -21,6 +21,7 @@ jobs:
         run: ./gradlew :nielsen-mediametrie-sdk:clean :nielsen-mediametrie-sdk:assembleRelease
 
       - name: Publish to Maven repository
-        run: ./gradlew :nielsen-mediametrie-sdk:publish \
-          -PmavenUsername=${{ secrets.MAVEN_USERNAME }} \
-          -PmavenPassword=${{ secrets.MAVEN_PASSWORD }}
+        run: |
+          ./gradlew :nielsen-mediametrie-sdk:publish \
+            -PmavenUsername=${{ secrets.MAVEN_USERNAME }} \
+            -PmavenPassword=${{ secrets.MAVEN_PASSWORD }}
