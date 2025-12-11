@@ -20,6 +20,8 @@ private enum class NielsenState {
     AD
 }
 
+private const val TAG: String = "NielsenTracker"
+
 public class NielsenPlayerTracker(
     private val appSdk: AppSdk,
     private val coroutineScope: CoroutineScope // `PlaybackViewModelScope`
@@ -36,66 +38,66 @@ public class NielsenPlayerTracker(
 
     // Listeners - internal for testing
     internal val playListener: (PlayerEvent.Play) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: Play")
+        Log.d(TAG, "PlayerEvent: Play")
         handlePlay()
     }
     internal val pauseListener: (PlayerEvent.Paused) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: Paused")
+        Log.d(TAG, "PlayerEvent: Paused")
         handlePause()
     }
     internal val seekedListener: (PlayerEvent.Seeked) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: Seeked to ${player?.currentTime}")
+        Log.d(TAG, "PlayerEvent: Seeked to ${player?.currentTime}")
         handleRepositioning()
     }
 
     internal val timeShiftedListener: (PlayerEvent.TimeShifted) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: TimeShifted to ${player?.currentTime}")
+        Log.d(TAG, "PlayerEvent: TimeShifted to ${player?.currentTime}")
         handleRepositioning()
     }
 
     internal val finishedListener: (PlayerEvent.PlaybackFinished) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: PlaybackFinished")
+        Log.d(TAG, "PlayerEvent: PlaybackFinished")
         handleFinished()
     }
     internal val errorListener: (PlayerEvent.Error) -> Unit = {
-        Log.e("NielsenTracker", "PlayerEvent: Error: ${it.message}")
+        Log.e(TAG, "PlayerEvent: Error: ${it.message}")
         handleError()
     }
     internal val adStartedListener: (PlayerEvent.AdStarted) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: AdStarted")
+        Log.d(TAG, "PlayerEvent: AdStarted")
         handleAdStart(it.ad)
     }
     internal val adFinishedListener: (PlayerEvent.AdFinished) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: AdFinished")
+        Log.d(TAG, "PlayerEvent: AdFinished")
         handleAdFinished()
     }
 
     internal val adBreakStartedListener: (PlayerEvent.AdBreakStarted) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: AdBreakStarted")
+        Log.d(TAG, "PlayerEvent: AdBreakStarted")
         handleAdBreakStarted()
     }
     internal val adBreakFinishedListener: (PlayerEvent.AdBreakFinished) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: AdBreakFinished")
+        Log.d(TAG, "PlayerEvent: AdBreakFinished")
         handleAdBreakFinished()
     }
 
     // listener for start buffering
     internal val stallStartedListener: (PlayerEvent.StallStarted) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: StallStarted - Buffering started")
+        Log.d(TAG, "PlayerEvent: StallStarted - Buffering started")
         stopSendingPlayhead()
 
         stallTimeoutJob = coroutineScope.launch {
             delay(STALL_TIMEOUT_MS)
             // Safety timeout: if StallEnded never arrives (e.g., permanent network loss),
             // stop tracking to comply with Nielsen documentation for external interruptions
-            Log.e("NielsenTracker", "Stall timeout reached (30s). Stopping Nielsen tracking.")
+            Log.e(TAG, "Stall timeout reached (30s). Stopping Nielsen tracking.")
             appSdk.stop()
         }
     }
 
     // listener for end buffering
     internal val stallEndedListener: (PlayerEvent.StallEnded) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: StallEnded - Buffering ended")
+        Log.d(TAG, "PlayerEvent: StallEnded - Buffering ended")
         // Cancel the timeout job, as the stall has ended
         stallTimeoutJob?.cancel()
         stallTimeoutJob = null
@@ -103,7 +105,7 @@ public class NielsenPlayerTracker(
     }
 
     internal val sourceLoadedListener: (SourceEvent.Loaded) -> Unit = {
-        Log.d("NielsenTracker", "PlayerEvent: SourceLoaded")
+        Log.d(TAG, "PlayerEvent: SourceLoaded")
         handleSourceLoaded(it)
     }
 
@@ -114,7 +116,10 @@ public class NielsenPlayerTracker(
      * @param player The Bitmovin Player instance
      * @param metadataProvider Function that provides Nielsen metadata when a source is loaded
      */
-    fun attachTo(player: Player, metadataProvider: (isLive: Boolean, duration: Double) -> NielsenContentMetadata) {
+    fun attachTo(
+        player: Player,
+        metadataProvider: (isLive: Boolean, duration: Double) -> NielsenContentMetadata,
+    ) {
         if (this.player != null) {
             Log.w("NielsenPlayerTracker", "Already attached to a player. Detach first.")
             return
@@ -125,9 +130,9 @@ public class NielsenPlayerTracker(
             val metadata = metadataProvider(isLive, duration)
             metadata.toJson()
         }
-        
+
         registerPlayerEvents()
-        
+
         Log.d("NielsenPlayerTracker", "Attaching to player with auto-start on source load")
         Log.i("NielsenPlayerTracker", "Successfully attached to player")
     }
@@ -146,14 +151,15 @@ public class NielsenPlayerTracker(
 
 
     fun startTracking() {
-        Log.d("NielsenTracker", "Starting Nielsen tracking.")
+        Log.d(TAG, "Starting Nielsen tracking.")
         handlePlay()
-        Log.d("NielsenTracker", "Tracking started")
+        Log.d(TAG, "Tracking started")
     }
+
     fun stopTracking() {
         if (!listenersRegistered) return
 
-        Log.d("NielsenTracker", "Stopping Nielsen tracking.")
+        Log.d(TAG, "Stopping Nielsen tracking.")
         stopSendingPlayhead()
         unregisterPlayerEvents()
         appSdk.end()
@@ -165,34 +171,35 @@ public class NielsenPlayerTracker(
     // Method to resume the SDK session (e.g. when returning from background)
     fun reconnect() {
         if (currentState == NielsenState.CONTENT) {
-            Log.d("NielsenTracker", "Reconnecting with Nielsen SDK.")
+            Log.d(TAG, "Reconnecting with Nielsen SDK.")
             stopSendingPlayhead() // Ensure there is no active playhead job
 
             contentMetadataProvider?.invoke(isLive, duration)?.let {
                 appSdk.loadMetadata(it)
                 startSendingPlayhead()
-                Log.d("NielsenTracker", "Reconnected content tracking with metadata: $it")
+                Log.d(TAG, "Reconnected content tracking with metadata: $it")
             } ?: run {
-                Log.e("NielsenTracker", "No content metadata available to reconnect tracking")
+                Log.e(TAG, "No content metadata available to reconnect tracking")
             }
         }
     }
+
     fun resume() {
         if (currentState == NielsenState.CONTENT) {
-            Log.d("NielsenTracker", "Resuming playback. Sending 'play' event to Nielsen.")
+            Log.d(TAG, "Resuming playback. Sending 'play' event to Nielsen.")
             startSendingPlayhead()
         } else {
-            Log.d("NielsenTracker", "Tracker is not in CONTENT state, cannot resume.")
+            Log.d(TAG, "Tracker is not in CONTENT state, cannot resume.")
         }
     }
 
     fun pause() {
         if (currentState == NielsenState.CONTENT || currentState == NielsenState.AD) {
-            Log.d("NielsenTracker", "Pausing playback. Sending 'stop' event to Nielsen.")
+            Log.d(TAG, "Pausing playback. Sending 'stop' event to Nielsen.")
             stopSendingPlayhead()
             appSdk.stop()
         } else {
-            Log.d("NielsenTracker", "Tracker is not in a trackable state, cannot pause.")
+            Log.d(TAG, "Tracker is not in a trackable state, cannot pause.")
         }
     }
 
@@ -204,8 +211,8 @@ public class NielsenPlayerTracker(
                 appSdk.play(JSONObject())
                 startSendingPlayhead()
                 currentState = NielsenState.CONTENT
-                Log.d("NielsenTracker", "Content tracking started with metadata: $it")
-            } ?: Log.e("NielsenTracker", "No content metadata available for start tracking")
+                Log.d(TAG, "Content tracking started with metadata: $it")
+            } ?: Log.e(TAG, "No content metadata available for start tracking")
         }
     }
 
@@ -222,6 +229,7 @@ public class NielsenPlayerTracker(
     private fun handleFinished() {
         stopTracking()
     }
+
     private fun handleError() {
         stopTracking()
     }
@@ -229,7 +237,7 @@ public class NielsenPlayerTracker(
     private fun handleAdBreakStarted() {
         if (currentState != NielsenState.CONTENT) return
 
-        Log.d("NielsenTracker", "Ad break started. Switching to AD state.")
+        Log.d(TAG, "Ad break started. Switching to AD state.")
         stopSendingPlayhead()
         appSdk.stop()
         currentState = NielsenState.AD
@@ -238,7 +246,7 @@ public class NielsenPlayerTracker(
     private fun handleAdBreakFinished() {
         if (currentState != NielsenState.AD) return
 
-        Log.d("NielsenTracker", "Ad break finished. Resuming content tracking.")
+        Log.d(TAG, "Ad break finished. Resuming content tracking.")
         stopSendingPlayhead()
         appSdk.stop()
 
@@ -246,12 +254,13 @@ public class NielsenPlayerTracker(
             appSdk.loadMetadata(it)
             startSendingPlayhead()
             currentState = NielsenState.CONTENT
-            Log.d("NielsenTracker", "Resumed content tracking after ad break with metadata: $it")
+            Log.d(TAG, "Resumed content tracking after ad break with metadata: $it")
         } ?: run {
-            Log.e("NielsenTracker", "No content metadata available to resume tracking")
+            Log.e(TAG, "No content metadata available to resume tracking")
             currentState = NielsenState.IDLE
         }
     }
+
     private fun handleAdStart(ad: Ad?) {
         stopSendingPlayhead()
         appSdk.stop()
@@ -265,8 +274,9 @@ public class NielsenPlayerTracker(
                 adTitle = data.adTitle ?: adTitle
                 adDescription = data.adDescription ?: adDescription
             }
+
             else -> {
-                Log.w("NielsenTracker", "Ad data type not recognized: ${data?.javaClass?.simpleName}")
+                Log.w(TAG, "Ad data type not recognized: ${data?.javaClass?.simpleName}")
             }
         }
 
@@ -287,32 +297,32 @@ public class NielsenPlayerTracker(
 
         currentState = NielsenState.AD
 
-        Log.d("NielsenTracker", "Ad tracking started with metadata: $adMetadata")
+        Log.d(TAG, "Ad tracking started with metadata: $adMetadata")
     }
 
     private fun handleAdFinished() {
-        Log.d("NielsenTracker", "An individual ad has finished, waiting for ad break to end.")
+        Log.d(TAG, "An individual ad has finished, waiting for ad break to end.")
     }
 
     private fun handleSourceLoaded(loaded: SourceEvent.Loaded) {
         val sourceDuration = loaded.source.duration
         val isLive = sourceDuration.isInfinite() || sourceDuration <= 0.0
 
-        Log.d("NielsenTracker", "Source loaded - isLive: $isLive, duration: $sourceDuration")
-        
+        Log.d(TAG, "Source loaded - isLive: $isLive, duration: $sourceDuration")
+
         // Store the stream properties
         this.isLive = isLive
         this.duration = sourceDuration
-        
+
         // Create metadata using the provider
         val metadata = contentMetadataProvider?.invoke(isLive, sourceDuration)
         if (metadata != null) {
             val finalMetadata = metadata
             contentMetadataProvider = { _, _ -> finalMetadata }
             startTracking()
-            Log.d("NielsenTracker", "Nielsen tracking started automatically with metadata: $metadata")
+            Log.d(TAG, "Nielsen tracking started automatically with metadata: $metadata")
         } else {
-            Log.e("NielsenTracker", "No metadata provider available for source loaded event")
+            Log.e(TAG, "No metadata provider available for source loaded event")
         }
     }
 
@@ -371,7 +381,7 @@ public class NielsenPlayerTracker(
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.d("NielsenTracker", "Playhead tracking failed: ${e.message}")
+                    Log.d(TAG, "Playhead tracking failed: ${e.message}")
                 }
                 delay(1000)
             }
