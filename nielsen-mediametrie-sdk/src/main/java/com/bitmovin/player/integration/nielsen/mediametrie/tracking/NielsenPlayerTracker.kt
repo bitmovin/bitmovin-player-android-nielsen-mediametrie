@@ -317,6 +317,7 @@ public class NielsenPlayerTracker(
             off(playListener)
             off(pauseListener)
             off(finishedListener)
+            off(timeChangedListener)
             off(errorListener)
             off(adStartedListener)
             off(adFinishedListener)
