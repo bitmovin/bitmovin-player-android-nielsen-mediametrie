@@ -29,7 +29,6 @@ public class NielsenPlayerTracker(
     private var player: Player? = null
     private var isLive: Boolean = false
     private var duration: Double = 0.0
-    internal var playheadJob: Job? = null
     internal var listenersRegistered = false
     private var currentState: NielsenState = NielsenState.IDLE
 
@@ -45,14 +44,15 @@ public class NielsenPlayerTracker(
         Log.d(TAG, "PlayerEvent: Paused")
         pause()
     }
-    internal val seekedListener: (PlayerEvent.Seeked) -> Unit = {
-        Log.d(TAG, "PlayerEvent: Seeked to ${player?.currentTime}")
-        handleRepositioning()
-    }
 
-    internal val timeShiftedListener: (PlayerEvent.TimeShifted) -> Unit = {
-        Log.d(TAG, "PlayerEvent: TimeShifted to ${player?.currentTime}")
-        handleRepositioning()
+    internal val timeChangedListener: (PlayerEvent.TimeChanged) -> Unit = {
+        Log.d(TAG, "PlayerEvent: TimeChanged to ${it.time}")
+        val playhead = if (isLive) {
+            System.currentTimeMillis() / 1000
+        } else {
+            player?.currentTime?.toLong() ?: 0L
+        }
+        appSdk.setPlayheadPosition(playhead)
     }
 
     internal val finishedListener: (PlayerEvent.PlaybackFinished) -> Unit = {
@@ -84,7 +84,6 @@ public class NielsenPlayerTracker(
     // listener for start buffering
     internal val stallStartedListener: (PlayerEvent.StallStarted) -> Unit = {
         Log.d(TAG, "PlayerEvent: StallStarted - Buffering started")
-        stopSendingPlayhead()
 
         stallTimeoutJob = coroutineScope.launch {
             delay(STALL_TIMEOUT_MS)
@@ -101,7 +100,6 @@ public class NielsenPlayerTracker(
         // Cancel the timeout job, as the stall has ended
         stallTimeoutJob?.cancel()
         stallTimeoutJob = null
-        startSendingPlayhead()
     }
 
     internal val sourceLoadedListener: (SourceEvent.Loaded) -> Unit = {
@@ -160,7 +158,6 @@ public class NielsenPlayerTracker(
         if (!listenersRegistered) return
 
         Log.d(TAG, "Stopping Nielsen tracking.")
-        stopSendingPlayhead()
         unregisterPlayerEvents()
         appSdk.end()
         currentState = NielsenState.IDLE
@@ -172,11 +169,9 @@ public class NielsenPlayerTracker(
     fun reconnect() {
         if (currentState == NielsenState.CONTENT) {
             Log.d(TAG, "Reconnecting with Nielsen SDK.")
-            stopSendingPlayhead() // Ensure there is no active playhead job
 
             contentMetadataProvider?.invoke(isLive, duration)?.let {
                 appSdk.loadMetadata(it)
-                startSendingPlayhead()
                 Log.d(TAG, "Reconnected content tracking with metadata: $it")
             } ?: run {
                 Log.e(TAG, "No content metadata available to reconnect tracking")
@@ -187,7 +182,6 @@ public class NielsenPlayerTracker(
     fun resume() {
         if (currentState == NielsenState.CONTENT) {
             Log.d(TAG, "Resuming playback. Sending 'play' event to Nielsen.")
-            startSendingPlayhead()
         } else {
             Log.d(TAG, "Tracker is not in CONTENT state, cannot resume.")
         }
@@ -196,7 +190,6 @@ public class NielsenPlayerTracker(
     fun pause() {
         if (currentState == NielsenState.CONTENT || currentState == NielsenState.AD) {
             Log.d(TAG, "Pausing playback. Sending 'stop' event to Nielsen.")
-            stopSendingPlayhead()
             appSdk.stop()
         } else {
             Log.d(TAG, "Tracker is not in a trackable state, cannot pause.")
@@ -209,24 +202,16 @@ public class NielsenPlayerTracker(
             contentMetadataProvider?.invoke(isLive, duration)?.let {
                 appSdk.loadMetadata(it)
                 appSdk.play(JSONObject())
-                startSendingPlayhead()
                 currentState = NielsenState.CONTENT
                 Log.d(TAG, "Content tracking started with metadata: $it")
             } ?: Log.e(TAG, "No content metadata available for start tracking")
         }
     }
 
-    private fun handleRepositioning() {
-        // Restart playhead job to send updated position immediately to Nielsen
-        stopSendingPlayhead()
-        startSendingPlayhead()
-    }
-
     private fun handleAdBreakStarted() {
         if (currentState != NielsenState.CONTENT) return
 
         Log.d(TAG, "Ad break started. Switching to AD state.")
-        stopSendingPlayhead()
         appSdk.stop()
         currentState = NielsenState.AD
     }
@@ -235,12 +220,10 @@ public class NielsenPlayerTracker(
         if (currentState != NielsenState.AD) return
 
         Log.d(TAG, "Ad break finished. Resuming content tracking.")
-        stopSendingPlayhead()
         appSdk.stop()
 
         contentMetadataProvider?.invoke(isLive, duration)?.let {
             appSdk.loadMetadata(it)
-            startSendingPlayhead()
             currentState = NielsenState.CONTENT
             Log.d(TAG, "Resumed content tracking after ad break with metadata: $it")
         } ?: run {
@@ -250,7 +233,6 @@ public class NielsenPlayerTracker(
     }
 
     private fun handleAdStart(ad: Ad?) {
-        stopSendingPlayhead()
         appSdk.stop()
         val adId = ad?.id ?: "ad-unknown"
         var adTitle = "Unknown Ad"
@@ -281,7 +263,6 @@ public class NielsenPlayerTracker(
         )
 
         appSdk.loadMetadata(adMetadata.toJson())
-        startSendingPlayhead()
 
         currentState = NielsenState.AD
 
@@ -315,8 +296,7 @@ public class NielsenPlayerTracker(
             p.on(SourceEvent.Loaded::class, sourceLoadedListener)
             p.on(PlayerEvent.Play::class, playListener)
             p.on(PlayerEvent.Paused::class, pauseListener)
-            p.on(PlayerEvent.Seeked::class, seekedListener)
-            p.on(PlayerEvent.TimeShifted::class, timeShiftedListener)
+            p.on(PlayerEvent.TimeChanged::class, timeChangedListener)
             p.on(PlayerEvent.PlaybackFinished::class, finishedListener)
             p.on(PlayerEvent.Error::class, errorListener)
             p.on(PlayerEvent.AdStarted::class, adStartedListener)
@@ -336,8 +316,6 @@ public class NielsenPlayerTracker(
             p.off(sourceLoadedListener)
             p.off(playListener)
             p.off(pauseListener)
-            p.off(seekedListener)
-            p.off(timeShiftedListener)
             p.off(finishedListener)
             p.off(errorListener)
             p.off(adStartedListener)
@@ -348,33 +326,6 @@ public class NielsenPlayerTracker(
             p.off(stallEndedListener)
             listenersRegistered = false
         }
-    }
-
-    private fun startSendingPlayhead() {
-        if (playheadJob?.isActive == true) return
-
-        playheadJob = coroutineScope.launch {
-            while (isActive) {
-                val playhead = if (isLive) {
-                    System.currentTimeMillis() / 1000
-                } else {
-                    player?.currentTime?.toLong() ?: 0L
-                }
-                try {
-                    appSdk.setPlayheadPosition(playhead)
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.d(TAG, "Playhead tracking failed: ${e.message}")
-                }
-                delay(1000)
-            }
-        }
-    }
-
-    private fun stopSendingPlayhead() {
-        playheadJob?.cancel()
-        playheadJob = null
     }
 
 }
