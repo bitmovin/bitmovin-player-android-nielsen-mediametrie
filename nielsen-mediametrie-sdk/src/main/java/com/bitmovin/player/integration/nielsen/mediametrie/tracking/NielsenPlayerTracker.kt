@@ -43,7 +43,7 @@ public class NielsenPlayerTracker(
     }
     internal val pauseListener: (PlayerEvent.Paused) -> Unit = {
         Log.d(TAG, "PlayerEvent: Paused")
-        handlePause()
+        pause()
     }
     internal val seekedListener: (PlayerEvent.Seeked) -> Unit = {
         Log.d(TAG, "PlayerEvent: Seeked to ${player?.currentTime}")
@@ -57,11 +57,11 @@ public class NielsenPlayerTracker(
 
     internal val finishedListener: (PlayerEvent.PlaybackFinished) -> Unit = {
         Log.d(TAG, "PlayerEvent: PlaybackFinished")
-        handleFinished()
+        stopTracking()
     }
     internal val errorListener: (PlayerEvent.Error) -> Unit = {
         Log.e(TAG, "PlayerEvent: Error: ${it.message}")
-        handleError()
+        stopTracking()
     }
     internal val adStartedListener: (PlayerEvent.AdStarted) -> Unit = {
         Log.d(TAG, "PlayerEvent: AdStarted")
@@ -69,7 +69,7 @@ public class NielsenPlayerTracker(
     }
     internal val adFinishedListener: (PlayerEvent.AdFinished) -> Unit = {
         Log.d(TAG, "PlayerEvent: AdFinished")
-        handleAdFinished()
+        Log.d(TAG, "An individual ad has finished, waiting for ad break to end.")
     }
 
     internal val adBreakStartedListener: (PlayerEvent.AdBreakStarted) -> Unit = {
@@ -216,22 +216,10 @@ public class NielsenPlayerTracker(
         }
     }
 
-    private fun handlePause() {
-        pause()
-    }
-
     private fun handleRepositioning() {
         // Restart playhead job to send updated position immediately to Nielsen
         stopSendingPlayhead()
         startSendingPlayhead()
-    }
-
-    private fun handleFinished() {
-        stopTracking()
-    }
-
-    private fun handleError() {
-        stopTracking()
     }
 
     private fun handleAdBreakStarted() {
@@ -298,10 +286,6 @@ public class NielsenPlayerTracker(
         currentState = NielsenState.AD
 
         Log.d(TAG, "Ad tracking started with metadata: $adMetadata")
-    }
-
-    private fun handleAdFinished() {
-        Log.d(TAG, "An individual ad has finished, waiting for ad break to end.")
     }
 
     private fun handleSourceLoaded(loaded: SourceEvent.Loaded) {
