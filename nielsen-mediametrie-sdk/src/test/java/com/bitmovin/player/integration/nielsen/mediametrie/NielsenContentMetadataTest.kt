@@ -1,12 +1,12 @@
 package com.bitmovin.player.integration.nielsen.mediametrie
 
-import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenMetadata
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.Constants.LIVE_STREAM_LENGTH_SECONDS
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import org.junit.Assert.*
 import org.junit.Test
 
-class NielsenMetadataTest {
+class NielsenContentMetadataTest {
 
     private fun base(
         type: String = "content",
@@ -18,7 +18,7 @@ class NielsenMetadataTest {
         cliMd: MediametrieStreamingType? = MediametrieStreamingType.VOD,
         cliCh: String? = "860",
         subbrand: String? = "MySub"
-    ) = NielsenMetadata(
+    ) = NielsenContentMetadata(
         type = type,
         assetId = assetId,
         program = program,

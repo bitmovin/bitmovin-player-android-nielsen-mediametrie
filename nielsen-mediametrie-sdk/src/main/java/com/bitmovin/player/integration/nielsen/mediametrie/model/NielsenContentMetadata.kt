@@ -4,7 +4,7 @@ import com.bitmovin.player.integration.nielsen.mediametrie.utils.Constants.LIVE_
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import org.json.JSONObject
 
-public data class NielsenMetadata(
+public data class NielsenContentMetadata(
     val type: String,
     val assetId: String,
     val program: String,

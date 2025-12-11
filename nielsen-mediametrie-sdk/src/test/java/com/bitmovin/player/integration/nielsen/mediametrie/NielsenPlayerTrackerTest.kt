@@ -14,12 +14,11 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import com.bitmovin.player.integration.nielsen.mediametrie.tracking.NielsenPlayerTracker
-import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenMetadata
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import android.util.Log
 import com.bitmovin.player.api.advertising.Ad
 import com.bitmovin.player.api.advertising.vast.VastAdData
-import kotlinx.coroutines.Job
 import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -35,7 +34,7 @@ class NielsenPlayerTrackerTest {
     private lateinit var sdk: AppSdk
     private lateinit var tracker: NielsenPlayerTracker
 
-    private val sampleNielsenMetadata = NielsenMetadata(
+    private val sampleNielsenContentMetadata = NielsenContentMetadata(
         type = "content",
         assetId = "video123",
         program = "program",
@@ -63,7 +62,7 @@ class NielsenPlayerTrackerTest {
             coroutineScope = testScope
         )
         
-        tracker.attachTo(player) { _, _ -> sampleNielsenMetadata }
+        tracker.attachTo(player) { _, _ -> sampleNielsenContentMetadata }
     }
 
 
@@ -75,7 +74,7 @@ class NielsenPlayerTrackerTest {
         tracker.sourceLoadedListener.invoke(mockSourceLoaded)
     }
 
-    private fun simulateSourceLoaded(tracker: NielsenPlayerTracker, isLive: Boolean, duration: Double, metadata: NielsenMetadata) {
+    private fun simulateSourceLoaded(tracker: NielsenPlayerTracker, isLive: Boolean, duration: Double, metadata: NielsenContentMetadata) {
         // Simulate SourceEvent.Loaded by triggering the listener directly
         val mockSourceLoaded = mockk<SourceEvent.Loaded> {
             every { source.duration } returns duration
@@ -248,7 +247,7 @@ class NielsenPlayerTrackerTest {
         // Create a live tracker
         val liveTracker = NielsenPlayerTracker(sdk, testScope)
         liveTracker.attachTo(player) { _, _ ->
-            NielsenMetadata(
+            NielsenContentMetadata(
                 type = "content",
                 assetId = "live-stream",
                 program = "Live Program",
@@ -261,7 +260,7 @@ class NielsenPlayerTrackerTest {
             )
         }
         
-        val metadata = NielsenMetadata(
+        val metadata = NielsenContentMetadata(
             type = "content",
             assetId = "live-stream",
             program = "Live Program",
@@ -527,7 +526,7 @@ class NielsenPlayerTrackerTest {
         val playListener = tracker.playListener
         
         // Set up metadata provider
-        tracker.contentMetadataProvider = { _, _ -> sampleNielsenMetadata.toJson() }
+        tracker.contentMetadataProvider = { _, _ -> sampleNielsenContentMetadata.toJson() }
 
         clearMocks(sdk)
         playListener.invoke(mockk(relaxed = true))
@@ -581,7 +580,7 @@ class NielsenPlayerTrackerTest {
     fun `isLive branch in playhead uses live timestamp`() = testScope.runTest {
         val liveTracker = NielsenPlayerTracker(sdk, testScope)
         liveTracker.attachTo(player) { _, _ ->
-            NielsenMetadata(
+            NielsenContentMetadata(
                 type = "content",
                 assetId = "video123",
                 program = "program",
@@ -594,7 +593,7 @@ class NielsenPlayerTrackerTest {
             )
         }
         clearMocks(sdk)
-        val metadata = NielsenMetadata(
+        val metadata = NielsenContentMetadata(
             type = "content",
             assetId = "video123",
             program = "program",

@@ -6,17 +6,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bitmovin.player.api.Player
 import com.bitmovin.player.api.PlayerConfig
-import com.bitmovin.player.api.event.on
 import com.bitmovin.player.api.source.SourceConfig
 import org.json.JSONObject
-import com.bitmovin.player.api.event.SourceEvent
 import com.bitmovin.player.integration.nielsen.mediametrie.tracking.NielsenPlayerTracker
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import com.bitmovin.player.api.advertising.AdvertisingConfig
 import com.bitmovin.player.api.advertising.AdItem
 import com.bitmovin.player.api.advertising.AdSource
 import com.bitmovin.player.api.advertising.AdSourceType
-import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenMetadata
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.nielsen.app.sdk.AppSdk
 
 
@@ -75,7 +73,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
                 val streamType = if (isLive) MediametrieStreamingType.LIVE else MediametrieStreamingType.VOD
 
-                NielsenMetadata(
+                NielsenContentMetadata(
                     type = "content",
                     assetId = "video123",
                     program = "My Program Title",

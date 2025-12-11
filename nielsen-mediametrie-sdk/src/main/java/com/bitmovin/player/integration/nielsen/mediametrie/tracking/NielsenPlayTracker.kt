@@ -6,13 +6,11 @@ import com.bitmovin.player.api.advertising.Ad
 import com.bitmovin.player.api.advertising.vast.VastAdData
 import com.bitmovin.player.api.event.PlayerEvent
 import com.bitmovin.player.api.event.SourceEvent
-import com.bitmovin.player.api.event.on
-import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenMetadata
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import com.nielsen.app.sdk.AppSdk
 import kotlinx.coroutines.*
 import org.json.JSONObject
-import kotlin.math.pow
 
 
 // enum to manage the Nielsen tracker states
@@ -116,7 +114,7 @@ public class NielsenPlayerTracker(
      * @param player The Bitmovin Player instance
      * @param metadataProvider Function that provides Nielsen metadata when a source is loaded
      */
-    fun attachTo(player: Player, metadataProvider: (isLive: Boolean, duration: Double) -> NielsenMetadata) {
+    fun attachTo(player: Player, metadataProvider: (isLive: Boolean, duration: Double) -> NielsenContentMetadata) {
         if (this.player != null) {
             Log.w("NielsenPlayerTracker", "Already attached to a player. Detach first.")
             return
@@ -272,7 +270,7 @@ public class NielsenPlayerTracker(
             }
         }
 
-        val adMetadata = NielsenMetadata(
+        val adMetadata = NielsenContentMetadata(
             type = "ad",
             assetId = adId,
             program = adDescription,
