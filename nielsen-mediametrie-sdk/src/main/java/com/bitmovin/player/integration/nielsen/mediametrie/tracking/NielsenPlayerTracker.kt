@@ -292,38 +292,38 @@ public class NielsenPlayerTracker(
     }
 
     private fun registerPlayerEvents() {
-        player?.let { p ->
-            p.on(SourceEvent.Loaded::class, sourceLoadedListener)
-            p.on(PlayerEvent.Play::class, playListener)
-            p.on(PlayerEvent.Paused::class, pauseListener)
-            p.on(PlayerEvent.TimeChanged::class, timeChangedListener)
-            p.on(PlayerEvent.PlaybackFinished::class, finishedListener)
-            p.on(PlayerEvent.Error::class, errorListener)
-            p.on(PlayerEvent.AdStarted::class, adStartedListener)
-            p.on(PlayerEvent.AdFinished::class, adFinishedListener)
-            p.on(PlayerEvent.AdStarted::class, adStartedListener)
-            p.on(PlayerEvent.AdFinished::class, adFinishedListener)
-            p.on(PlayerEvent.AdBreakStarted::class, adBreakStartedListener)
-            p.on(PlayerEvent.AdBreakFinished::class, adBreakFinishedListener)
-            p.on(PlayerEvent.StallStarted::class, stallStartedListener)
-            p.on(PlayerEvent.StallEnded::class, stallEndedListener)
+        player?.run {
+            on(SourceEvent.Loaded::class, sourceLoadedListener)
+            on(PlayerEvent.Play::class, playListener)
+            on(PlayerEvent.Paused::class, pauseListener)
+            on(PlayerEvent.TimeChanged::class, timeChangedListener)
+            on(PlayerEvent.PlaybackFinished::class, finishedListener)
+            on(PlayerEvent.Error::class, errorListener)
+            on(PlayerEvent.AdStarted::class, adStartedListener)
+            on(PlayerEvent.AdFinished::class, adFinishedListener)
+            on(PlayerEvent.AdStarted::class, adStartedListener)
+            on(PlayerEvent.AdFinished::class, adFinishedListener)
+            on(PlayerEvent.AdBreakStarted::class, adBreakStartedListener)
+            on(PlayerEvent.AdBreakFinished::class, adBreakFinishedListener)
+            on(PlayerEvent.StallStarted::class, stallStartedListener)
+            on(PlayerEvent.StallEnded::class, stallEndedListener)
             listenersRegistered = true
         }
     }
 
     private fun unregisterPlayerEvents() {
-        player?.let { p ->
-            p.off(sourceLoadedListener)
-            p.off(playListener)
-            p.off(pauseListener)
-            p.off(finishedListener)
-            p.off(errorListener)
-            p.off(adStartedListener)
-            p.off(adFinishedListener)
-            p.off(adBreakStartedListener)
-            p.off(adBreakFinishedListener)
-            p.off(stallStartedListener)
-            p.off(stallEndedListener)
+        player?.run {
+            off(sourceLoadedListener)
+            off(playListener)
+            off(pauseListener)
+            off(finishedListener)
+            off(errorListener)
+            off(adStartedListener)
+            off(adFinishedListener)
+            off(adBreakStartedListener)
+            off(adBreakFinishedListener)
+            off(stallStartedListener)
+            off(stallEndedListener)
             listenersRegistered = false
         }
     }
