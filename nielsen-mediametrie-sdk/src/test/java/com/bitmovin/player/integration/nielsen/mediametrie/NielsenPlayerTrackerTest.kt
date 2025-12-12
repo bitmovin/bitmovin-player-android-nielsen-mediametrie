@@ -14,12 +14,12 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import com.bitmovin.player.integration.nielsen.mediametrie.tracking.NielsenPlayerTracker
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenChannelMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import android.util.Log
 import com.bitmovin.player.api.advertising.Ad
 import com.bitmovin.player.api.advertising.vast.VastAdData
-import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -45,6 +45,9 @@ class NielsenPlayerTrackerTest {
         cli_ch = "860",
         subbrand = null
     )
+    private val sampleNielsenChannelMetadata = NielsenChannelMetadata(
+        channelName = "Test Channel"
+    )
 
     @Before
     fun setUp() {
@@ -61,8 +64,12 @@ class NielsenPlayerTrackerTest {
             appSdk = sdk,
             coroutineScope = testScope
         )
-        
-        tracker.attachTo(player) { _, _ -> sampleNielsenContentMetadata }
+
+        tracker.attachTo(
+            player = player,
+            contentMetadataProvider = { _, _ -> sampleNielsenContentMetadata },
+            channelMetadataProvider = { sampleNielsenChannelMetadata }
+        )
     }
 
 
@@ -74,30 +81,34 @@ class NielsenPlayerTrackerTest {
         tracker.sourceLoadedListener.invoke(mockSourceLoaded)
     }
 
-    private fun simulateSourceLoaded(tracker: NielsenPlayerTracker, isLive: Boolean, duration: Double, metadata: NielsenContentMetadata) {
-        // Simulate SourceEvent.Loaded by triggering the listener directly
-        val mockSourceLoaded = mockk<SourceEvent.Loaded> {
-            every { source.duration } returns duration
-        }
-        tracker.sourceLoadedListener.invoke(mockSourceLoaded)
-    }
-
     @Test
-    fun `startTracking should load metadata, send play and schedule playhead`() = testScope.runTest {
+    fun `startTracking loads content metadata and plays channel metadata`() = testScope.runTest {
         simulateSourceLoaded()
-        verify { sdk.loadMetadata(any<JSONObject>()) }
-        verify { sdk.play(any<JSONObject>()) }
 
-        advanceTimeBy(1_000)
-        verify { sdk.setPlayheadPosition(42L) }
+        verify {
+            sdk.loadMetadata(match<JSONObject> {
+                it.getString("assetid") == sampleNielsenContentMetadata.assetId
+            })
+        }
+        verify {
+            sdk.play(match<JSONObject> {
+                it.getString("channelName") == sampleNielsenChannelMetadata.channelName
+            })
+        }
+        verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
+
         tracker.stopTracking()
     }
 
     @Test
-    fun `startTracking called twice returns early`() = testScope.runTest {
-        // Tracker is already configured in setUp()
-        clearMocks(sdk, answers = false)
+    fun `startTracking called twice does not reload metadata`() = testScope.runTest {
+        simulateSourceLoaded()
+        clearMocks(sdk)
+
+        tracker.startTracking()
+
         verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
+        verify(exactly = 0) { sdk.play(any<JSONObject>()) }
         tracker.stopTracking()
     }
 
@@ -152,47 +163,45 @@ class NielsenPlayerTrackerTest {
 
 
     @Test
-    fun `resume should call sdk play when in CONTENT state`() = testScope.runTest {
+    fun `resume does nothing when tracker is in CONTENT state`() = testScope.runTest {
         simulateSourceLoaded()
         clearMocks(sdk)
+
         tracker.resume()
 
-        advanceTimeBy(1_000)
-
-        verify { sdk.setPlayheadPosition(42L) }
+        verify(exactly = 0) { sdk.play(any<JSONObject>()) }
+        verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
+        verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
         tracker.stopTracking()
     }
 
     @Test
-    fun `resume does nothing when not in CONTENT state`() = testScope.runTest {
+    fun `resume does nothing when tracker is not in CONTENT state`() = testScope.runTest {
         clearMocks(sdk)
+
         tracker.resume()
+
+        verify(exactly = 0) { sdk.play(any<JSONObject>()) }
+        verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
         verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
     }
 
-    @Test
-    fun `resume while playhead already active returns early`() = testScope.runTest {
-        tracker.resume()
-        tracker.stopTracking()
-    }
-
 
     @Test
-    fun `reconnect should reload metadata and resume play when in CONTENT state`() = testScope.runTest {
+    fun `reconnect reloads metadata when tracker is in CONTENT state`() = testScope.runTest {
         simulateSourceLoaded()
         clearMocks(sdk)
 
         tracker.reconnect()
 
-        verify { sdk.loadMetadata(any<JSONObject>()) }
-        advanceTimeBy(1_000)
-        verify { sdk.setPlayheadPosition(42L) }
+        verify(exactly = 1) { sdk.loadMetadata(any<JSONObject>()) }
+        verify(exactly = 0) { sdk.play(any<JSONObject>()) }
         tracker.stopTracking()
     }
 
     @Test
-    fun `reconnect should log error if metadata is null`() = testScope.runTest {
-        tracker = NielsenPlayerTracker(sdk, testScope)
+    fun `reconnect in CONTENT with null metadata logs and does nothing`() = testScope.runTest {
+        simulateSourceLoaded()
         tracker.contentMetadataProvider = null
         clearMocks(sdk)
 
@@ -200,17 +209,6 @@ class NielsenPlayerTrackerTest {
 
         verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
         verify(exactly = 0) { sdk.play(any<JSONObject>()) }
-    }
-
-    @Test
-    fun `reconnect in CONTENT with null metadata logs and does nothing`() = testScope.runTest {
-        tracker.contentMetadataProvider = null
-        clearMocks(sdk)
-
-        tracker.reconnect()
-
-        verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
-        verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
         tracker.stopTracking()
     }
 
@@ -219,111 +217,43 @@ class NielsenPlayerTrackerTest {
         clearMocks(sdk)
         tracker.reconnect()
         verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
-        verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
-    }
-
-
-    @Test
-    fun `seeked should restart playhead job`() {
-        simulateSourceLoaded()
-
-        val initialJob = tracker.playheadJob
-        assertNotNull("Expected playheadJob to be non‐null after startTracking()", initialJob)
-        assertTrue("Initial playheadJob should be active", initialJob!!.isActive)
-
-        val seekListener = tracker.seekedListener
-        seekListener.invoke(mockk(relaxed = true))
-
-        val newJob = tracker.playheadJob
-        assertNotNull("Expected a new playheadJob after seek", newJob)
-
-        assertFalse("Old playheadJob should be cancelled on seek", initialJob.isActive)
-        assertTrue("New playheadJob should be active", newJob!!.isActive)
-        assertNotSame("Should have a different Job instance after seek", initialJob, newJob)
+        verify(exactly = 0) { sdk.play(any<JSONObject>()) }
     }
 
     @Test
-    fun `timeShifted should restart playhead job for live streams`() {
-        // Create a live tracker
-        val liveTracker = NielsenPlayerTracker(sdk, testScope)
-        liveTracker.attachTo(player) { _, _ ->
-            NielsenContentMetadata(
-                type = "content",
-                assetId = "live-stream",
-                program = "Live Program",
-                title = "Live Title",
-                length = 0.0,
-                isLivestn = true,
-                cli_md = MediametrieStreamingType.LIVE,
-                cli_ch = "Live Channel",
-                subbrand = "Live"
-            )
-        }
-        
-        val metadata = NielsenContentMetadata(
-            type = "content",
-            assetId = "live-stream",
-            program = "Live Program",
-            title = "Live Title",
-            length = 0.0,
-            isLivestn = true,
-            cli_md = MediametrieStreamingType.LIVE,
-            cli_ch = "Live Channel",
-            subbrand = "Live"
-        )
-        simulateSourceLoaded(liveTracker, true, 0.0, metadata)
+    fun `timeChanged listener forwards absolute playhead`() {
+        every { player.currentTime } returns 11.5
+        every { player.playbackTimeOffsetToAbsoluteTime } returns 5.5
 
-        val initialJob = liveTracker.playheadJob
-        assertNotNull("Expected playheadJob to be non‐null after startTracking()", initialJob)
-        assertTrue("Initial playheadJob should be active", initialJob!!.isActive)
+        val timeEvent = mockk<PlayerEvent.TimeChanged>(relaxed = true)
+        tracker.timeChangedListener.invoke(timeEvent)
 
-        val timeShiftedListener = liveTracker.timeShiftedListener
-        timeShiftedListener.invoke(mockk(relaxed = true))
-
-        val newJob = liveTracker.playheadJob
-        assertNotNull("Expected a new playheadJob after timeshift", newJob)
-
-        assertFalse("Old playheadJob should be cancelled on timeshift", initialJob.isActive)
-        assertTrue("New playheadJob should be active", newJob!!.isActive)
-        assertNotSame("Should have a different Job instance after timeshift", initialJob, newJob)
+        verify { sdk.setPlayheadPosition(17L) }
     }
 
     @Test
-    fun `stallStarted should cancel playhead`() = testScope.runTest {
-        simulateSourceLoaded()
-        advanceTimeBy(1_000)
-        verify { sdk.setPlayheadPosition(42L) }
-        val stallListener = tracker.stallStartedListener
+    fun `timeChanged listener uses zero when player is detached`() {
+        tracker.detach()
         clearMocks(sdk)
-        stallListener.invoke(mockk(relaxed = true))
 
-        advanceTimeBy(1_500)
-        verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
+        val timeEvent = mockk<PlayerEvent.TimeChanged>(relaxed = true)
+        tracker.timeChangedListener.invoke(timeEvent)
+
+        verify { sdk.setPlayheadPosition(0L) }
     }
-
-    @Test
-    fun `stallEnded should resume sdk play and start playhead`() = testScope.runTest {
-        val stallEndedListener = tracker.stallEndedListener
-        clearMocks(sdk)
-        stallEndedListener.invoke(mockk(relaxed = true))
-        advanceTimeBy(1_000)
-        verify { sdk.setPlayheadPosition(42L) }
-
-        tracker.stopTracking()
-    }
-
     @Test
     fun `stallEnded cancels timeout when a stall was active`() = testScope.runTest {
         val stallStarted = tracker.stallStartedListener
         val stallEnded = tracker.stallEndedListener
 
-        stallStarted.invoke(mockk(relaxed = true))
         clearMocks(sdk)
-        stallEnded.invoke(mockk(relaxed = true))
+        stallStarted.invoke(mockk(relaxed = true))
+        advanceTimeBy(15_000)
 
-        advanceTimeBy(1_000)
-        verify { sdk.setPlayheadPosition(42L) }
-        tracker.stopTracking()
+        stallEnded.invoke(mockk(relaxed = true))
+        advanceTimeBy(20_000)
+
+        verify(exactly = 0) { sdk.stop() }
     }
 
 
@@ -344,8 +274,7 @@ class NielsenPlayerTrackerTest {
             })
         }
         verify(exactly = 0) { sdk.play(any<JSONObject>()) }
-        advanceTimeBy(1_000)
-        verify { sdk.setPlayheadPosition(42L) }
+        verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
         tracker.stopTracking()
     }
 
@@ -456,10 +385,10 @@ class NielsenPlayerTrackerTest {
         val adBreakFinishedListener = tracker.adBreakFinishedListener
         clearMocks(sdk)
         adBreakFinishedListener.invoke(mockk(relaxed = true))
-        verify { sdk.stop() }
-        verify { sdk.loadMetadata(any<JSONObject>()) }
-        advanceTimeBy(1_000)
-        verify { sdk.setPlayheadPosition(42L) }
+
+        verify(exactly = 1) { sdk.stop() }
+        verify(exactly = 1) { sdk.loadMetadata(any<JSONObject>()) }
+        verify(exactly = 0) { sdk.play(any<JSONObject>()) }
         tracker.stopTracking()
     }
 
@@ -475,32 +404,26 @@ class NielsenPlayerTrackerTest {
 
     @Test
     fun `adBreakFinished with null metadata transitions to IDLE`() = testScope.runTest {
-
         val adStartedListener = tracker.adStartedListener
-
         val ad = mockk<Ad>(relaxed = true)
         every { ad.id } returns "ad-123"
-
         val adStarted = mockk<PlayerEvent.AdStarted>(relaxed = true)
         every { adStarted.ad } returns ad
 
         adStartedListener.invoke(adStarted)
-
         tracker.contentMetadataProvider = null
 
         val adBreakFinishedListener = tracker.adBreakFinishedListener
 
         clearMocks(sdk)
-        try {
-            adBreakFinishedListener.invoke(mockk(relaxed = true))
+        adBreakFinishedListener.invoke(mockk(relaxed = true))
 
-            verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
+        verify(exactly = 1) { sdk.stop() }
+        verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
 
-            advanceTimeBy(1_100)
-            verify(exactly = 0) { sdk.setPlayheadPosition(any()) }
-        } finally {
-            tracker.pause()
-        }
+        clearMocks(sdk)
+        tracker.pause()
+        verify(exactly = 0) { sdk.stop() }
     }
 
 
@@ -531,6 +454,7 @@ class NielsenPlayerTrackerTest {
         clearMocks(sdk)
         playListener.invoke(mockk(relaxed = true))
         verify { sdk.loadMetadata(any<JSONObject>()) }
+        verify { sdk.play(any<JSONObject>()) }
         tracker.pause()
     }
 
@@ -574,68 +498,6 @@ class NielsenPlayerTrackerTest {
         stallStarted.invoke(mockk(relaxed = true))
         advanceTimeBy(30_001)
         verify(atLeast = 1) { sdk.stop() }
-    }
-
-    @Test
-    fun `isLive branch in playhead uses live timestamp`() = testScope.runTest {
-        val liveTracker = NielsenPlayerTracker(sdk, testScope)
-        liveTracker.attachTo(player) { _, _ ->
-            NielsenContentMetadata(
-                type = "content",
-                assetId = "video123",
-                program = "program",
-                title = "title",
-                length = 600.0,
-                isLivestn = true,
-                cli_md = MediametrieStreamingType.LIVE,
-                cli_ch = "860",
-                subbrand = null
-            )
-        }
-        clearMocks(sdk)
-        val metadata = NielsenContentMetadata(
-            type = "content",
-            assetId = "video123",
-            program = "program",
-            title = "title",
-            length = 600.0,
-            isLivestn = true,
-            cli_md = MediametrieStreamingType.LIVE,
-            cli_ch = "860",
-            subbrand = null
-        )
-        simulateSourceLoaded(liveTracker, true, 600.0, metadata)
-        advanceTimeBy(1_000)
-        verify(atLeast = 1) { sdk.setPlayheadPosition(any<Long>()) }
-        liveTracker.stopTracking()
-    }
-
-    @Test
-    fun `sendPlayhead logs error on failure but continues`() = testScope.runTest {
-        simulateSourceLoaded()
-
-        clearMocks(sdk)
-        every { sdk.setPlayheadPosition(any()) } throws Exception("cancelled")
-
-        advanceTimeBy(1_050)
-
-        verify(atLeast = 1) { sdk.setPlayheadPosition(any<Long>()) }
-        tracker.stopTracking()
-    }
-
-    @Test
-    fun `sendPlayhead continues on repeated failures`() = testScope.runTest {
-        simulateSourceLoaded()
-
-        clearMocks(sdk)
-        every { sdk.setPlayheadPosition(any()) } throws Exception("cancelled")
-
-        advanceTimeBy(1_050)
-        advanceTimeBy(1_050)
-
-        verify(atLeast = 2) { sdk.setPlayheadPosition(any<Long>()) }
-
-        tracker.stopTracking()
     }
 
 
