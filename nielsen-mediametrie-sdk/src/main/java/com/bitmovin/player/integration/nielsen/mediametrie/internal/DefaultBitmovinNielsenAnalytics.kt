@@ -48,18 +48,22 @@ internal class DefaultBitmovinNielsenAnalytics(
     }
 
     override fun pause() {
-        if (tracker == null) {
-            logger.warn("pause() called before attach(). Call attach() before pause().")
-            return
+        tracker.run {
+            if (this == null) {
+                logger.warn("pause() called before attach(). Call attach() before pause().")
+                return
+            }
+            pause()
         }
-        tracker.pause()
     }
 
     override fun end() {
-        if (tracker == null) {
-            logger.warn("end() called before attach(). Call attach() before end().")
-            return
+        tracker.run {
+            if (this == null) {
+                logger.warn("end() called before attach(). Call attach() before end().")
+                return
+            }
+            stopTracking()
         }
-        tracker.stopTracking()
     }
 }

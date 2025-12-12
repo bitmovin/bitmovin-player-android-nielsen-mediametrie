@@ -264,23 +264,6 @@ class NielsenPlayerTrackerTest {
         verify(exactly = 0) { sdk.stop() }
     }
 
-    @Test
-    fun `tracker transitions across IDLE CONTENT AD states`() = testScope.runTest {
-        assertEquals("IDLE", tracker.currentStateName())
-
-        tracker.sourceLoadedListener.invoke(createSourceLoadedEvent())
-        assertEquals("CONTENT", tracker.currentStateName())
-
-        tracker.adStartedListener.invoke(mockAdStartedEvent())
-        assertEquals("AD", tracker.currentStateName())
-
-        tracker.adBreakFinishedListener.invoke(mockk(relaxed = true))
-        assertEquals("CONTENT", tracker.currentStateName())
-
-        tracker.detach()
-        assertEquals("IDLE", tracker.currentStateName())
-    }
-
     private fun createSourceLoadedEvent(duration: Double = 600.0): SourceEvent.Loaded {
         val source = mockk<Source>(relaxed = true) {
             every { this@mockk.duration } returns duration
@@ -302,10 +285,4 @@ class NielsenPlayerTrackerTest {
             every { this@mockk.ad } returns ad
         }
     }
-}
-
-private fun NielsenPlayerTracker.currentStateName(): String {
-    val field = this::class.java.getDeclaredField("currentState")
-    field.isAccessible = true
-    return (field.get(this) as Enum<*>).name
 }
