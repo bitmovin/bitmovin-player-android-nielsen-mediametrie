@@ -54,7 +54,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
             advertisingConfig = AdvertisingConfig(preRollAd) // just pre-roll
         )
 
-        player = Player.create(app, playerConfig)
+        player = Player(app, playerConfig)
 
         player?.on(SourceEvent.Loaded::class) { event ->
             val duration = event.source.duration
@@ -103,10 +103,6 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         super.onCleared()
         nielsenAnalytics?.detach()
         player?.destroy()
-    }
-
-    fun resumeSdk() {
-        nielsenAnalytics?.resume()
     }
 
     fun pauseSdk() {
