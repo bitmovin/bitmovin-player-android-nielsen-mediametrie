@@ -105,10 +105,6 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         player?.destroy()
     }
 
-    fun pauseSdk() {
-        nielsenAnalytics?.pause()
-    }
-
     fun endSdk() {
         nielsenAnalytics?.end()
     }

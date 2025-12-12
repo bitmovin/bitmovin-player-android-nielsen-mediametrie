@@ -13,6 +13,7 @@ import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenChannelM
 import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.tracking.NielsenPlayerTracker
 import com.nielsen.app.sdk.AppSdk
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -121,6 +122,49 @@ class NielsenPlayerTrackerTest {
     }
 
     @Test
+    fun `ad start with null ad falls back to defaults`() {
+        val event = mockk<PlayerEvent.AdStarted>(relaxed = true) {
+            every { ad } returns null
+        }
+
+        tracker.adStartedListener.invoke(event)
+
+        verify {
+            sdk.loadMetadata(match<JSONObject> {
+                it.optString("type") == "ad" &&
+                    it.optString("assetid") == "ad-unknown" &&
+                    it.optString("title") == "Unknown Ad" &&
+                    it.optString("program") == "Unknown Ad"
+            })
+        }
+    }
+
+    @Test
+    fun `ad start with null vast fields uses fallbacks`() {
+        val vast = mockk<VastAdData>(relaxed = true) {
+            every { adTitle } returns null
+            every { adDescription } returns null
+        }
+        val ad = mockk<Ad>(relaxed = true) {
+            every { id } returns "vast-123"
+            every { data } returns vast
+        }
+        val event = mockk<PlayerEvent.AdStarted>(relaxed = true) {
+            every { this@mockk.ad } returns ad
+        }
+
+        tracker.adStartedListener.invoke(event)
+
+        verify {
+            sdk.loadMetadata(match<JSONObject> {
+                it.optString("assetid") == "vast-123" &&
+                    it.optString("title") == "Unknown Ad" &&
+                    it.optString("program") == "Unknown Ad"
+            })
+        }
+    }
+
+    @Test
     fun `pause stops tracking while content plays`() = testScope.runTest {
         tracker.sourceLoadedListener.invoke(createSourceLoadedEvent())
         tracker.pause()
@@ -157,24 +201,84 @@ class NielsenPlayerTrackerTest {
     }
 
     @Test
+    fun `ad break started ignored when not tracking content`() = testScope.runTest {
+        tracker.adBreakStartedListener.invoke(mockk(relaxed = true))
+        verify(exactly = 0) { sdk.stop() }
+    }
+
+    @Test
     fun `detach ends tracking and unregisters listeners`() {
         tracker.attach()
         tracker.detach()
 
         verify { sdk.end() }
-        // Verify that listeners for the currently supported events are registered
-        verify { player.off(PlayerEvent.Paused::class, any()) }
-        verify { player.off(PlayerEvent.TimeChanged::class, any()) }
-        verify { player.off(PlayerEvent.PlaybackFinished::class, any()) }
-        verify { player.off(PlayerEvent.Error::class, any()) }
-        verify { player.off(SourceEvent.Loaded::class, any()) }
-        verify { player.off(SourceEvent.Unloaded::class, any()) }
-        verify { player.off(PlayerEvent.AdStarted::class, any()) }
-        verify { player.off(PlayerEvent.AdFinished::class, any()) }
-        verify { player.off(PlayerEvent.AdBreakStarted::class, any()) }
-        verify { player.off(PlayerEvent.AdBreakFinished::class, any()) }
-        verify { player.off(PlayerEvent.StallStarted::class, any()) }
-        verify { player.off(PlayerEvent.StallEnded::class, any()) }
+        verify { player.off(tracker.sourceLoadedListener) }
+        verify { player.off(tracker.sourceUnloadedListener) }
+        verify { player.off(tracker.pauseListener) }
+        verify { player.off(tracker.timeChangedListener) }
+        verify { player.off(tracker.finishedListener) }
+        verify { player.off(tracker.errorListener) }
+        verify { player.off(tracker.adStartedListener) }
+        verify { player.off(tracker.adFinishedListener) }
+        verify { player.off(tracker.adBreakStartedListener) }
+        verify { player.off(tracker.adBreakFinishedListener) }
+        verify { player.off(tracker.stallStartedListener) }
+        verify { player.off(tracker.stallEndedListener) }
+    }
+
+    @Test
+    fun `reconnect reloads metadata when tracking content`() = testScope.runTest {
+        tracker.sourceLoadedListener.invoke(createSourceLoadedEvent())
+        clearMocks(sdk, answers = false)
+
+        tracker.reconnect()
+
+        verify(exactly = 1) { sdk.loadMetadata(any<JSONObject>()) }
+    }
+
+    @Test
+    fun `reconnect ignored when tracker idle`() {
+        tracker.reconnect()
+
+        verify(exactly = 0) { sdk.loadMetadata(any<JSONObject>()) }
+    }
+
+    @Test
+    fun `source unloaded ends tracking`() = testScope.runTest {
+        tracker.sourceLoadedListener.invoke(createSourceLoadedEvent())
+        clearMocks(sdk, answers = false)
+
+        tracker.sourceUnloadedListener.invoke(mockk(relaxed = true))
+
+        verify { sdk.end() }
+    }
+
+    @Test
+    fun `stall ended cancels timeout`() = testScope.runTest {
+        tracker.stallStartedListener.invoke(mockk(relaxed = true))
+        tracker.stallEndedListener.invoke(mockk(relaxed = true))
+        clearMocks(sdk, answers = false)
+
+        advanceTimeBy(30_100)
+
+        verify(exactly = 0) { sdk.stop() }
+    }
+
+    @Test
+    fun `tracker transitions across IDLE CONTENT AD states`() = testScope.runTest {
+        assertEquals("IDLE", tracker.currentStateName())
+
+        tracker.sourceLoadedListener.invoke(createSourceLoadedEvent())
+        assertEquals("CONTENT", tracker.currentStateName())
+
+        tracker.adStartedListener.invoke(mockAdStartedEvent())
+        assertEquals("AD", tracker.currentStateName())
+
+        tracker.adBreakFinishedListener.invoke(mockk(relaxed = true))
+        assertEquals("CONTENT", tracker.currentStateName())
+
+        tracker.detach()
+        assertEquals("IDLE", tracker.currentStateName())
     }
 
     private fun createSourceLoadedEvent(duration: Double = 600.0): SourceEvent.Loaded {
@@ -198,4 +302,10 @@ class NielsenPlayerTrackerTest {
             every { this@mockk.ad } returns ad
         }
     }
+}
+
+private fun NielsenPlayerTracker.currentStateName(): String {
+    val field = this::class.java.getDeclaredField("currentState")
+    field.isAccessible = true
+    return (field.get(this) as Enum<*>).name
 }
