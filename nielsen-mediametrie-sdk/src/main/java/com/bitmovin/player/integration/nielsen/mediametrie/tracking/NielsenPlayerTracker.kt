@@ -6,6 +6,7 @@ import com.bitmovin.player.api.advertising.Ad
 import com.bitmovin.player.api.advertising.vast.VastAdData
 import com.bitmovin.player.api.event.PlayerEvent
 import com.bitmovin.player.api.event.SourceEvent
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenChannelMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import com.nielsen.app.sdk.AppSdk
@@ -108,6 +109,7 @@ public class NielsenPlayerTracker(
     }
 
     var contentMetadataProvider: ((isLive: Boolean, duration: Double) -> JSONObject?)? = null
+    var channelMetadataProvider: (() -> JSONObject?)? = null
 
     /**
      * Attaches the tracker to a player with automatic start on source load.
@@ -116,7 +118,8 @@ public class NielsenPlayerTracker(
      */
     fun attachTo(
         player: Player,
-        metadataProvider: (isLive: Boolean, duration: Double) -> NielsenContentMetadata,
+        contentMetadataProvider: (isLive: Boolean, duration: Double) -> NielsenContentMetadata,
+        channelMetadataProvider: () -> NielsenChannelMetadata,
     ) {
         if (this.player != null) {
             Log.w("NielsenPlayerTracker", "Already attached to a player. Detach first.")
@@ -125,9 +128,10 @@ public class NielsenPlayerTracker(
 
         this.player = player
         this.contentMetadataProvider = { isLive, duration ->
-            val metadata = metadataProvider(isLive, duration)
+            val metadata = contentMetadataProvider(isLive, duration)
             metadata.toJson()
         }
+        this.channelMetadataProvider = { channelMetadataProvider().toJson() }
 
         registerPlayerEvents()
 
@@ -199,9 +203,10 @@ public class NielsenPlayerTracker(
 
     private fun handlePlay() {
         if (currentState == NielsenState.IDLE) {
+            val channelMetadata = channelMetadataProvider?.invoke() ?: JSONObject()
             contentMetadataProvider?.invoke(isLive, duration)?.let {
                 appSdk.loadMetadata(it)
-                appSdk.play(JSONObject())
+                appSdk.play(channelMetadata)
                 currentState = NielsenState.CONTENT
                 Log.d(TAG, "Content tracking started with metadata: $it")
             } ?: Log.e(TAG, "No content metadata available for start tracking")
