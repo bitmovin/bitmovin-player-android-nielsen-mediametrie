@@ -78,7 +78,6 @@ internal class NielsenPlayerTracker private constructor(
     internal var listenersRegistered: Boolean = false
         private set
 
-    private var lastKnownDurationSeconds: Double = 0.0
     private var isLiveSource: Boolean = false
 
     internal val pauseListener: (PlayerEvent.Paused) -> Unit = {
@@ -194,7 +193,6 @@ internal class NielsenPlayerTracker private constructor(
     private fun handleSourceLoaded(loaded: SourceEvent.Loaded) {
         val duration = loaded.source.duration
         isLiveSource = duration.isInfinite() || duration <= 0.0
-        lastKnownDurationSeconds = duration
 
         val fallbackId = "bitmovin-content"
         val streamType = if (isLiveSource) {
