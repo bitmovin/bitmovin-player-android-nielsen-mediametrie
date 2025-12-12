@@ -9,11 +9,11 @@ public data class NielsenContentMetadata(
     val assetId: String,
     val program: String,
     val title: String,
-    val length: Double?, // The Source's duration is expected. Said duration will be converted to Nielsen's SDK format
-    val isLivestn: Boolean, // A true/false value is expected. Said value will be converted to the "y", "n" values expected by Nielsen's SDK
+    val length: Double?, // The Source's duration according to Nielsen's SDK format
+    val isLivestn: Boolean,
     val cli_md: MediametrieStreamingType?,
     val cli_ch: String?,
-    val subbrand: String?
+    val subbrand: String?,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("type", type)
