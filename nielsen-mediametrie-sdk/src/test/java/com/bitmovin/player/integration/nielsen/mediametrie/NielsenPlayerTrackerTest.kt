@@ -81,7 +81,19 @@ class NielsenPlayerTrackerTest {
     fun `attach registers player listeners`() {
         tracker.attach()
 
-        verify { player.on(PlayerEvent.Play::class, tracker.playListener) }
+        // Verify that listeners for the currently supported events are registered
+        verify { player.on(PlayerEvent.Paused::class, any()) }
+        verify { player.on(PlayerEvent.TimeChanged::class, any()) }
+        verify { player.on(PlayerEvent.PlaybackFinished::class, any()) }
+        verify { player.on(PlayerEvent.Error::class, any()) }
+        verify { player.on(SourceEvent.Loaded::class, any()) }
+        verify { player.on(SourceEvent.Unloaded::class, any()) }
+        verify { player.on(PlayerEvent.AdStarted::class, any()) }
+        verify { player.on(PlayerEvent.AdFinished::class, any()) }
+        verify { player.on(PlayerEvent.AdBreakStarted::class, any()) }
+        verify { player.on(PlayerEvent.AdBreakFinished::class, any()) }
+        verify { player.on(PlayerEvent.StallStarted::class, any()) }
+        verify { player.on(PlayerEvent.StallEnded::class, any()) }
         assertTrue(tracker.listenersRegistered)
     }
 
@@ -150,7 +162,19 @@ class NielsenPlayerTrackerTest {
         tracker.detach()
 
         verify { sdk.end() }
-        verify { player.off(tracker.playListener) }
+        // Verify that listeners for the currently supported events are registered
+        verify { player.off(PlayerEvent.Paused::class, any()) }
+        verify { player.off(PlayerEvent.TimeChanged::class, any()) }
+        verify { player.off(PlayerEvent.PlaybackFinished::class, any()) }
+        verify { player.off(PlayerEvent.Error::class, any()) }
+        verify { player.off(SourceEvent.Loaded::class, any()) }
+        verify { player.off(SourceEvent.Unloaded::class, any()) }
+        verify { player.off(PlayerEvent.AdStarted::class, any()) }
+        verify { player.off(PlayerEvent.AdFinished::class, any()) }
+        verify { player.off(PlayerEvent.AdBreakStarted::class, any()) }
+        verify { player.off(PlayerEvent.AdBreakFinished::class, any()) }
+        verify { player.off(PlayerEvent.StallStarted::class, any()) }
+        verify { player.off(PlayerEvent.StallEnded::class, any()) }
     }
 
     private fun createSourceLoadedEvent(duration: Double = 600.0): SourceEvent.Loaded {
