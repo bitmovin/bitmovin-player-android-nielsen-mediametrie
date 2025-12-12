@@ -14,6 +14,7 @@ import com.bitmovin.player.api.advertising.AdvertisingConfig
 import com.bitmovin.player.api.advertising.AdItem
 import com.bitmovin.player.api.advertising.AdSource
 import com.bitmovin.player.api.advertising.AdSourceType
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenChannelMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.nielsen.app.sdk.AppSdk
 
@@ -24,7 +25,7 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
         type = AdSourceType.Bitmovin,
         tag = "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/single_ad_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ct%3Dskippablelinear&correlator="
     )
-        private val redirectErrorAdSource = AdSource(
+    private val redirectErrorAdSource = AdSource(
         type = AdSourceType.Ima,
         tag = "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/single_ad_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ct%3Dredirecterror&nofb=1&correlator="
     )
@@ -46,9 +47,9 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
     private var nielsenTracker: NielsenPlayerTracker? = null
     private var contentMetadata: JSONObject? = null
-    
+
     private val nielsenSdk: AppSdk? get() = (getApplication() as? NielsenSdkProvider)?.nielsenSdk
-    
+
     init {
         val sourceUrl = "https://storage.googleapis.com/shaka-demo-assets/bbb-dark-truths-hls/hls.m3u8"
 //        val sourceUrl = "https://storage.googleapis.com/shaka-live-assets/player-source.mpd"
@@ -63,29 +64,34 @@ class PlaybackViewModel(app: Application) : AndroidViewModel(app) {
 
         nielsenSdk?.let { sdk ->
             nielsenTracker = NielsenPlayerTracker(sdk, viewModelScope)
-            
-            nielsenTracker?.attachTo(player!!) { isLive, duration ->
-        
-                if (!isLive) {
-                    player?.scheduleAd(midRollAd)
-                    player?.scheduleAd(postRollAd)
+
+            nielsenTracker?.attachTo(
+                player!!, { isLive, duration ->
+
+                    if (!isLive) {
+                        player?.scheduleAd(midRollAd)
+                        player?.scheduleAd(postRollAd)
+                    }
+
+                    val streamType = if (isLive) MediametrieStreamingType.LIVE else MediametrieStreamingType.VOD
+
+                    NielsenContentMetadata(
+                        type = "content",
+                        assetId = "video123",
+                        program = "My Program Title",
+                        title = "My Program Title",
+                        length = duration.coerceAtLeast(0.0),
+                        isLivestn = isLive,
+                        cli_md = streamType,
+                        cli_ch = "my-channel",
+                        subbrand = "my-subbrand"
+                    )
+                },
+                {
+                    NielsenChannelMetadata("my-channel")
                 }
+            )
 
-                val streamType = if (isLive) MediametrieStreamingType.LIVE else MediametrieStreamingType.VOD
-
-                NielsenContentMetadata(
-                    type = "content",
-                    assetId = "video123",
-                    program = "My Program Title",
-                    title = "My Program Title",
-                    length = if (duration.isFinite() && duration > 0) duration else null,
-                    isLivestn = isLive,
-                    cli_md = streamType,
-                    cli_ch = "my-channel",
-                    subbrand = "my-subbrand"
-                )
-            }
-            
             Log.d("PlaybackViewModel", "Nielsen Tracker attached to player with auto-start")
         } ?: run {
             Log.w("PlaybackViewModel", "Nielsen SDK not available, tracking disabled")
