@@ -48,11 +48,9 @@ public class NielsenPlayerTracker(
 
     internal val timeChangedListener: (PlayerEvent.TimeChanged) -> Unit = {
         Log.d(TAG, "PlayerEvent: TimeChanged to ${it.time}")
-        val playhead = if (isLive) {
-            System.currentTimeMillis() / 1000
-        } else {
-            player?.currentTime?.toLong() ?: 0L
-        }
+        val playhead = player?.let {
+            it.currentTime + it.playbackTimeOffsetToAbsoluteTime
+        }?.toLong() ?: 0L
         appSdk.setPlayheadPosition(playhead)
     }
 
