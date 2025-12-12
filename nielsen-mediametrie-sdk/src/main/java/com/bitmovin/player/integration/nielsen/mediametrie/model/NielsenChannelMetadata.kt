@@ -6,6 +6,6 @@ public data class NielsenChannelMetadata(
     val channelName: String? = null,
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
-        put("channelName", channelName)
+        putOpt("channelName", channelName)
     }
 }

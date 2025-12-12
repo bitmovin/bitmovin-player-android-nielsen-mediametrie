@@ -61,12 +61,18 @@ class NielsenContentMetadataTest {
     }
 
     @Test
-    fun `length zero negative NaN and Infinity fallback to LIVE_STREAM_LENGTH_SECONDS`() {
+    fun `length zero negative NaN and Infinity fallback to LIVE_STREAM_LENGTH_SECONDS for live`() {
         listOf(0.0, -5.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY).forEach { bad ->
-            val json = base(length = bad).toJson()
+            val json = base(length = bad, isLive = true).toJson()
             assertTrue(json.has("length"))
             assertEquals(LIVE_STREAM_LENGTH_SECONDS, json.getInt("length"))
         }
+    }
+
+    @Test
+    fun `length invalid for VOD is omitted`() {
+        val json = base(length = Double.NaN, isLive = false).toJson()
+        assertFalse(json.has("length"))
     }
 
     @Test

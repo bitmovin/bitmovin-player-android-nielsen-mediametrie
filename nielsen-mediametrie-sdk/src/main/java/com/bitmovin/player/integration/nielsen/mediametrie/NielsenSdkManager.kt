@@ -1,32 +1,35 @@
 package com.bitmovin.player.integration.nielsen.mediametrie
 
 import android.content.Context
-import android.util.Log
-import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenInitSettings
+import com.bitmovin.player.integration.nielsen.mediametrie.internal.Logger
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenAppInformation
 import com.nielsen.app.sdk.AppSdk
 import com.nielsen.app.sdk.IAppNotifier
-import org.json.JSONObject
 
 /**
  * Factory function to create Nielsen AppSdk instance with proper error handling
  * @param context Application context
  * @param settings Nielsen initialization settings
+ * @param appNotifier Optional Nielsen [IAppNotifier] for SDK callbacks
  * @return Result containing AppSdk on success or Throwable on failure
  */
-public fun createNielsenSdk(context: Context, settings: NielsenInitSettings): Result<AppSdk> {
+public fun createNielsenSdk(
+    context: Context,
+    settings: NielsenAppInformation,
+    appNotifier: IAppNotifier? = null
+): Result<AppSdk> {
+    val logger = Logger(settings.debugLogging)
     return try {
         val cfg = settings.toJson()
-        val notifier = object : IAppNotifier {
-            override fun onAppSdkEvent(positionMs: Long, eventCode: Int, message: String?) {
-                Log.d("NielsenSdk", "event $eventCode @ $positionMs → $message")
-            }
+        val notifier = appNotifier ?: IAppNotifier { positionMs, eventCode, message ->
+            logger.debug("Nielsen SDK event $eventCode @ $positionMs → $message")
         }
 
         val sdk = AppSdk(context.applicationContext, cfg, notifier)
-        Log.i("NielsenSdk", "Nielsen SDK initialized successfully")
+        logger.info("Nielsen SDK initialized successfully")
         Result.success(sdk)
     } catch (t: Throwable) {
-        Log.e("NielsenSdk", "Nielsen SDK initialization failed", t)
+        logger.error("Nielsen SDK initialization failed", t)
         Result.failure(t)
     }
 }

@@ -4,10 +4,10 @@ Sample Bitmovin Android Player integration that wires Nielsen App SDK measuremen
 
 ## Project Overview
 
-- `NielsenSdkManager` — wraps `AppSdk` creation, holds a singleton, and logs SDK callbacks.
-- `NielsenInitSettings` — strongly typed init configuration → Nielsen JSON.
-- `NielsenMetadata` — builds content metadata (length coercion, `islivestn` mapping, optional Mediametrie fields).
-- `NielsenPlayerTracker` — maps Bitmovin events to Nielsen SDK calls; handles playhead pings, ads, and buffering.
+- `BitmovinNielsenAnalyticsFactory` / `BitmovinNielsenAnalytics` — public API that wires your `Player` into Nielsen.
+- `NielsenAppInformation` — strongly typed init configuration → Nielsen JSON.
+- `NielsenContentMetadata` / `NielsenChannelMetadata` — metadata models with Médiamétrie fields and override support.
+- `NielsenPlayerTracker` — internal bridge that maps Bitmovin events (playhead, stalls, ads) to Nielsen SDK calls.
 - `MyApplication` / `MainActivity` — initialize and forward lifecycle events to resume/pause/end tracking.
 
 ## Requirements
@@ -20,30 +20,61 @@ Sample Bitmovin Android Player integration that wires Nielsen App SDK measuremen
 
 ### Main Configuration Options
 
-| Setting        | Type    | Required | Description                                                      |
-|----------------|---------|----------|------------------------------------------------------------------|
-| `appId`        | String  | Yes      | Your Nielsen App ID (e.g. `PXXXXXXXX-...`).                      |
-| `optOut`       | Boolean | Yes      | `true` disables measurement (use for consent/opt‑out).           |
-| `enableFpid`   | Boolean | No       | Enables First‑Party ID collection. The default value is `true`.  |
-| `debugLogging` | Boolean | No       | If `true`, enables Nielsen dev debug (`nol_devDebug = "DEBUG"`). |
+| Setting        | Type      | Required | Description                                                      |
+|----------------|-----------|----------|------------------------------------------------------------------|
+| `appId`        | String    | Yes      | Your Nielsen App ID (e.g. `PXXXXXXXX-...`).                      |
+| `optOut`       | Boolean   | Yes      | `true` disables measurement (use for consent/opt‑out).           |
+| `appName`      | String?   | No       | Optional app name reported to Nielsen.                           |
+| `appVersion`   | String?   | No       | Optional app version reported to Nielsen.                        |
+| `enableFpid`   | Boolean?  | No       | Enables First‑Party ID collection.                               |
+| `uid2`         | String?   | No       | Optional UID2 hash.                                              |
+| `hemSha1`      | String?   | No       | Optional SHA1 hash.                                              |
+| `hemSha256`    | String?   | No       | Optional SHA256 hash.                                            |
+| `debugLogging` | Boolean   | No       | Enables Nielsen dev debug (`nol_devDebug = "DEBUG"`).            |
 
 ## Content Metadata
 
-`NielsenMetadata` builds the content metadata JSONObject expected by Nielsen. Typical fields:
+`NielsenContentMetadata` builds the content metadata JSONObject expected by Nielsen. Typical fields:
 
-| Field       | Type                       | Required | Notes                                                                                 |
-|-------------|----------------------------|----------|---------------------------------------------------------------------------------------|
-| `type`      | String                     | Yes      | Nielsen content type (e.g., `"content"`).                                            |
-| `assetId`   | String                     | Yes      | Unique content ID.                                                                    |
-| `program`   | String                     | Yes      | Program/show name.                                                                    |
-| `title`     | String                     | Yes      | Episode/title.                                                                        |
-| `length`    | Double?                    | Yes      | Seconds. Non‑positive/NaN/∞ are coerced to a safe live default internally.            |
-| `isLivestn` | Boolean                    | Yes      | Converted to `"y"` / `"n"` for `islivestn`.                                           |
-| `cli_md`    | MediametrieStreamingType?  | No       | France-specific streaming type (if applicable).                                       |
-| `cli_ch`    | String?                    | No       | France channel code (if applicable).                                                  |
-| `subbrand`  | String?                    | No       | Optional brand/subbrand.                                                              |
+| Field        | Type                      | Required | Notes                                                                                   |
+|--------------|---------------------------|----------|-----------------------------------------------------------------------------------------|
+| `type`       | String                    | Yes      | Nielsen content type (defaults to `"content"` when unset).                              |
+| `assetId`    | String                    | Yes      | Unique content ID.                                                                      |
+| `program`    | String                    | Yes      | Program/show name.                                                                      |
+| `title`      | String                    | Yes      | Episode/title.                                                                          |
+| `length`     | Double?                   | Yes      | Seconds. Non‑positive/NaN/∞ are coerced to a safe live default internally.              |
+| `isLivestn`  | Boolean                   | Yes      | Converted to `"y"` / `"n"` for `islivestn`.                                             |
+| `cli_md`     | MediametrieStreamingType? | No       | France-specific streaming type (e.g., `LIVE`, `VOD`, `AD`).                             |
+| `cli_ch`     | String?                   | No       | France channel code (if applicable).                                                    |
+| `subbrand`   | String?                   | No       | Optional brand/subbrand.                                                                |
+| `cli_cn`     | String?                   | No       | Publisher-specific content identifier.                                                  |
+| `nol_p0-19`  | String?                   | No       | Optional custom Nielsen fields (`nol_p0`…`nol_p19`) for client-defined variables.       |
 
 For more details, see the official [Nielsen SDK documentation](https://engineeringportal.nielsen.com/wiki/France_SDK_Metadata#Content_Metadata).
+
+### Using the SDK
+
+```kotlin
+val analytics = BitmovinNielsenAnalyticsFactory
+    .create(
+        context = applicationContext,
+        appInformation = NielsenAppInformation(
+            appId = "PXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+            optOut = false,
+            enableFpid = true,
+            debugLogging = BuildConfig.DEBUG
+        )
+    )
+    .getOrThrow()
+
+analytics.setContentMetadata(
+    NielsenContentMetadata(subbrand = "bitmovin-sample", cli_ch = "860")
+)
+analytics.setChannelMetadata(NielsenChannelMetadata(channelName = "bitmovin-sample"))
+analytics.attach(player)
+```
+
+The `BitmovinNielsenAnalytics` instance internally creates and manages a `NielsenPlayerTracker`, so you only need to set metadata overrides and attach your `Player`. Ads, stalls, and playhead pings are forwarded automatically.
 
 ## Module Structure
 
@@ -52,7 +83,7 @@ For more details, see the official [Nielsen SDK documentation](https://engineeri
 - Lifecycle entry points (`MainActivity.kt`, `MyApplication.kt`) and state management (`PlaybackViewModel.kt`).
 
 ### Library Module (`nielsen-mediametrie-sdk`)
-- `model` — API data models (e.g., `NielsenInitSettings.kt`, `NielsenMetadata.kt`).
+- `model` — API data models (e.g., `NielsenAppInformation.kt`, `NielsenContentMetadata.kt`).
 - `tracking` — core tracking (`NielsenPlayerTracker.kt`) wiring Bitmovin events to Nielsen.
 - `utils` — internals such as `Constants.kt`, `MediametrieStreamingType.kt`.
 - `test` — unit tests (e.g., `NielsenPlayerTrackerTest.kt`).
