@@ -1,12 +1,12 @@
 package com.bitmovin.player.integration.nielsen.mediametrie
 
-import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenMetadata
+import com.bitmovin.player.integration.nielsen.mediametrie.model.NielsenContentMetadata
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.Constants.LIVE_STREAM_LENGTH_SECONDS
 import com.bitmovin.player.integration.nielsen.mediametrie.utils.MediametrieStreamingType
 import org.junit.Assert.*
 import org.junit.Test
 
-class NielsenMetadataTest {
+class NielsenContentMetadataTest {
 
     private fun base(
         type: String = "content",
@@ -18,7 +18,7 @@ class NielsenMetadataTest {
         cliMd: MediametrieStreamingType? = MediametrieStreamingType.VOD,
         cliCh: String? = "860",
         subbrand: String? = "MySub"
-    ) = NielsenMetadata(
+    ) = NielsenContentMetadata(
         type = type,
         assetId = assetId,
         program = program,
@@ -61,12 +61,18 @@ class NielsenMetadataTest {
     }
 
     @Test
-    fun `length zero negative NaN and Infinity fallback to LIVE_STREAM_LENGTH_SECONDS`() {
+    fun `length zero negative NaN and Infinity fallback to LIVE_STREAM_LENGTH_SECONDS for live`() {
         listOf(0.0, -5.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY).forEach { bad ->
-            val json = base(length = bad).toJson()
+            val json = base(length = bad, isLive = true).toJson()
             assertTrue(json.has("length"))
             assertEquals(LIVE_STREAM_LENGTH_SECONDS, json.getInt("length"))
         }
+    }
+
+    @Test
+    fun `length invalid for VOD is omitted`() {
+        val json = base(length = Double.NaN, isLive = false).toJson()
+        assertFalse(json.has("length"))
     }
 
     @Test

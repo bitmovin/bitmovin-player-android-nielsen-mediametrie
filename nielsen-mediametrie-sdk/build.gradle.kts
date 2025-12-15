@@ -40,6 +40,10 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     )
 }
 
+kotlin {
+    explicitApi()
+}
+
 android {
     namespace = "com.bitmovin.player.integration.nielsen.mediametrie"
 

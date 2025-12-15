@@ -16,7 +16,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 class MainActivity : ComponentActivity() {
     private val vm by viewModels<PlaybackViewModel>()
 
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -33,12 +32,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        vm.resumeSdk()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        vm.pauseSdk()
     }
 
     override fun onDestroy() {
