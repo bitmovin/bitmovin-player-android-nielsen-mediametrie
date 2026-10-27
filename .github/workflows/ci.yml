@@ -18,7 +18,7 @@ jobs:
       run: ./gradlew testDebugUnitTest -PplayerKey=${{ secrets.PLAYER_KEY }}
     - name: Display unit test results
       id: test-results
-      uses: bitmovin-engineering/action-junit-report@v4
+      uses: mikepenz/action-junit-report@v6
       if: always()
       with:
         check_name: 'Unit tests: Results'
